@@ -12,6 +12,14 @@ const int motor_in4 = 7;
 const int trigPin = 11;
 const int echoPin = 10;
 
+// nodemcu mode toggle pin
+const int node_pin = 9;
+
+// mopping pin for toggling the transistor
+const int mop_pin = 6;
+
+const int robot_speed = 100;
+
 int state = 0;
 
 bool mop = false;
@@ -19,8 +27,8 @@ bool auto_mode = false;
 
 void set_movement_speed(int spd)
 {
-  digitalWrite(motor_en_r, spd);
-  digitalWrite(motor_en_l, spd);
+  analogWrite(motor_en_r, spd);
+  analogWrite(motor_en_l, spd);
 }
 
 void move_forward()
@@ -80,13 +88,15 @@ void stop_movement()
 
 void start_mopping()
 {
+  digitalWrite(mop_pin, HIGH);
 }
 
 void stop_mopping()
 {
+  digitalWrite(mop_pin, LOW);
 }
 
-long get_front_distance()
+double get_front_distance()
 {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -94,8 +104,10 @@ long get_front_distance()
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
 
-  long duration = pulseIn(echoPin, HIGH);
-  long distance = duration * 0.034 / 2;
+  double duration = pulseIn(echoPin, HIGH);
+  double distance = duration * 0.034 / 2;
+
+  Serial.println(distance);
 
   return distance;
 }
@@ -117,22 +129,46 @@ void setup()
   // ultrasonic sensor
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+
+  // nodemcu mode toggle pin
+  pinMode(node_pin, INPUT);
+
+  // mopping pin
+  pinMode(mop_pin, OUTPUT);
+
+  set_movement_speed(255);
 }
 
 void loop()
 {
+//  Serial.println(get_front_distance());
+  if (digitalRead(node_pin) == HIGH)
+  {
+    auto_mode = true;
+        Serial.println("auto");
+  }
+  else if (digitalRead(node_pin) == LOW)
+  {
+    auto_mode = false;
+        Serial.println("manual");
+  }
+
   if (auto_mode)
   {
     // code for the automatic mode
-    if (get_front_distance() < 6)
+    if (get_front_distance() < 6.0)
     {
       // there is an obstacle
-      // turn right
+      stop_movement();
+      turn_left();
     }
     else
     {
       move_forward();
     }
+
+//    mop = true;
+//    start_mopping();
   }
   else
   {
@@ -164,6 +200,7 @@ void loop()
     }
     else if (state == 'm')
     {
+      state = 'p';
       Serial.println("m");
       if (mop)
       {
@@ -176,7 +213,7 @@ void loop()
         start_mopping();
       }
     }
-    else if (state == 'p')
+    else
     {
       Serial.println("p");
       stop_movement();
